@@ -1,0 +1,96 @@
+
+name: Release Diabetes Triage
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/shehanir/diabetes-triage
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f diabetes-triage/Dockerfile \
+            -t "$IMAGE_NAME:$GITHUB_REF_NAME" \
+            -t "$IMAGE_NAME:latest" \
+            diabetes-triage
+
+      - name: Smoke test Docker container
+        run: |
+          set -euo pipefail
+
+          docker run -d \
+            --name diabetes-triage-smoke \
+            -p 8080:80 \
+            "$IMAGE_NAME:$GITHUB_REF_NAME"
+
+          trap 'docker rm -f diabetes-triage-smoke >/dev/null 2>&1 || true' EXIT
+
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/health; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Container health check timed out"
+              docker logs diabetes-triage-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+
+          curl -fsS http://localhost:8080/health \
+            | grep -q '"status":"ok"'
+
+          curl -fsS -X POST http://localhost:8080/predict \
+            -H "Content-Type: application/json" \
+            -d '{
+              "age": 0.02,
+              "sex": -0.044,
+              "bmi": 0.06,
+              "bp": -0.03,
+              "s1": -0.02,
+              "s2": 0.03,
+              "s3": -0.02,
+              "s4": 0.02,
+              "s5": 0.02,
+              "s6": -0.001
+            }' | grep -q '"prediction"'
+
+          status=$(curl -s -o /tmp/missing-feature.json \
+            -w "%{http_code}" \
+            -X POST http://localhost:8080/predict \
+            -H "Content-Type: application/json" \
+            -d '{"age": 0.02}')
+
+          test "$status" = "422"
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            docker login ghcr.io \
+              -u "$GITHUB_ACTOR" \
+              --password-stdin
+
+      - name: Publish Docker image
+        run: |
+          docker push "$IMAGE_NAME:$GITHUB_REF_NAME"
+          docker push "$IMAGE_NAME:latest"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
