@@ -1,0 +1,21 @@
+
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Local MLflow tracking data
+mlruns/
+
+# Local environment secrets
+.env
+
+# macOS files
+.DS_Store
