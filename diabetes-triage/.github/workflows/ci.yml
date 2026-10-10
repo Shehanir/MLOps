@@ -1,0 +1,47 @@
+
+name: Diabetes Triage CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-train:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run lint checks
+        run: ruff check app src tests
+
+      - name: Run API tests
+        run: python -m pytest -v
+
+      - name: Run training smoke test
+        run: python src/train.py
+
+      - name: Upload training metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: v0.1-training-metrics
+          path: models/metrics.json
+          if-no-files-found: error
