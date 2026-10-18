@@ -3,15 +3,14 @@ import json
 from pathlib import Path
 
 import joblib
+import mlflow
+import mlflow.sklearn
 from sklearn.datasets import load_diabetes
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-import mlflow
-import mlflow.sklearn
-
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = ROOT / "models"

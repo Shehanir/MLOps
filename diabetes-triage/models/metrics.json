@@ -1,7 +1,12 @@
 {
-  "model_version": "v0.1",
-  "model_type": "LinearRegression",
-  "rmse": 53.85344583676593,
+  "model_version": "v0.2",
+  "model_type": "Ridge",
+  "alpha": 1.0,
+  "rmse": 53.777454065343896,
+  "baseline_version": "v0.1",
+  "baseline_rmse": 53.85344583676593,
+  "rmse_delta": -0.07599177142203217,
+  "better_than_baseline": true,
   "random_state": 42,
   "test_size": 0.2
 }

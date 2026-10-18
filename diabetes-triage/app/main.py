@@ -6,7 +6,6 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "model.joblib"
 
@@ -15,14 +14,14 @@ FEATURES = [
     "s2", "s3", "s4", "s5", "s6",
 ]
 
-MODEL_VERSION = "v0.1"
+MODEL_VERSION = "v0.2"
 
 app = FastAPI(title="Diabetes Progression Prediction API")
 
 # Load the trained pipeline once when the service starts.
 if not MODEL_PATH.exists():
     raise RuntimeError(
-        f"Model not found at {MODEL_PATH}. Run python src/train.py first."
+        f"Model not found at {MODEL_PATH}. Run python src/train_v0_2.py first."
     )
 
 model = joblib.load(MODEL_PATH)

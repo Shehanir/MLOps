@@ -40,12 +40,12 @@ jobs:
       - name: Run API tests
         run: python -m pytest -v
 
-      - name: Run training smoke test
-        run: python src/train.py
+      - name: Run v0.2 training smoke test
+        run: python src/train_v0_2.py
 
       - name: Upload training metrics
         uses: actions/upload-artifact@v4
         with:
-          name: v0.1-training-metrics
+          name: v0.2-training-metrics
           path: diabetes-triage/models/metrics.json
           if-no-files-found: error

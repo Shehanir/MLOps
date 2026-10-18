@@ -11,15 +11,15 @@ The goal is to build a reproducible machine learning workflow that exposes a tra
 The project is developed incrementally:
 
 - **v0.1 — Baseline:** StandardScaler and Linear Regression, with a trained model, evaluation metrics, FastAPI endpoints, automated tests, and Docker packaging.
-- **v0.2 — Model improvement:** Evaluate an alternative model, such as Ridge Regression, and compare its performance with the baseline.
+- **v0.2 — Current model:** StandardScaler and Ridge Regression, compared with the v0.1 baseline using the same validation split.
 - **CI/CD:** Use GitHub Actions to run code-quality checks, tests, and a training smoke test. A version tag triggers the Docker release workflow.
 
-### Baseline
+### Current model
 
 | Item | Value |
 |---|---|
-| Model version | v0.1 |
-| Algorithm | Linear Regression |
+| Model version | v0.2 |
+| Algorithm | Ridge Regression |
 | Preprocessing | StandardScaler |
 | Validation strategy | 80% training / 20% validation |
 | Random seed | 42 |
@@ -46,11 +46,14 @@ MLOps/
     │   └── main.py
     │
     ├── src/
-    │   └── train.py
+    │   ├── train.py
+    │   └── train_v0_2.py
     │
     ├── models/
     │   ├── model.joblib
-    │   └── metrics.json
+    │   ├── metrics.json
+    │   ├── model_v0.1.joblib
+    │   └── metrics_v0.1.json
     │
     ├── tests/
     │   └── test_api.py
@@ -67,10 +70,12 @@ MLOps/
 
 | Component | Responsibility |
 |---|---|
-| `src/train.py` | Loads the dataset, splits the data, trains the pipeline, evaluates RMSE, saves the model and metrics, and logs the run to MLflow. |
+| `src/train.py` | Trains the original v0.1 Linear Regression baseline. |
+| `src/train_v0_2.py` | Trains the current v0.2 Ridge model, compares RMSE with v0.1, saves the current artifacts, and logs the run to MLflow. |
 | `app/main.py` | Loads the saved model and exposes the prediction and health endpoints. |
 | `models/model.joblib` | Serialized trained scikit-learn pipeline, including preprocessing and regression. |
-| `models/metrics.json` | Records the model version, model type, RMSE, random seed, and validation split size. |
+| `models/metrics.json` | Records the current v0.2 model version, RMSE, and comparison with v0.1. |
+| `models/model_v0.1.joblib` and `models/metrics_v0.1.json` | Preserve the v0.1 baseline artifacts for comparison. |
 | `tests/test_api.py` | Tests API health, valid predictions, missing features, unexpected features, and finite predictions. |
 | `requirements.txt` | Defines the Python dependencies and their pinned versions. |
 | `Dockerfile` | Packages the application, dependencies, and trained model into a container. |
@@ -160,7 +165,7 @@ The dependencies include scikit-learn, pandas, NumPy, FastAPI, Uvicorn, MLflow, 
 Run this command from inside `diabetes-triage/`:
 
 ```bash
-python src/train.py
+python src/train_v0_2.py
 ```
 
 The script:
@@ -168,7 +173,7 @@ The script:
 1. Loads the scikit-learn diabetes dataset.
 2. Separates the features and target.
 3. Creates a reproducible 80/20 train/validation split using random seed 42.
-4. Fits a pipeline containing `StandardScaler` and `LinearRegression`.
+4. Fits a pipeline containing `StandardScaler` and `Ridge(alpha=1.0)`.
 5. Evaluates predictions on the validation set.
 6. Saves the fitted pipeline to `models/model.joblib`.
 7. Saves evaluation information to `models/metrics.json`.
@@ -191,7 +196,7 @@ Open:
 
 http://localhost:5002
 
-Select the `diabetes_triage` experiment and inspect the `v0.1_baseline` run.
+Select the `diabetes_triage` experiment and inspect the `v0.2_ridge` run.
 
 Stop the UI using `Ctrl+C` when finished.
 
@@ -228,7 +233,7 @@ GET /health
 ```json
 {
   "status": "ok",
-  "model_version": "v0.1"
+  "model_version": "v0.2"
 }
 ```
 
@@ -276,6 +281,22 @@ The number above illustrates the response format only; the actual prediction dep
 
 The API expects all ten features. It returns HTTP 422 for missing features, invalid input types, or unexpected extra fields.
 
+FastAPI returns validation errors as JSON. For example, if `s6` is missing, the response has this structure:
+
+```json
+{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": ["body", "s6"],
+      "msg": "Field required"
+    }
+  ]
+}
+```
+
+The exact error list can vary depending on which fields are invalid, but the response identifies the location and reason for each validation error.
+
 The prediction is a regression output, not a probability. The current version does not define a high-risk threshold or a clinical triage category.
 
 ## 8. Run Automated Tests
@@ -313,7 +334,7 @@ Run these commands from the **`MLOps` repository root**.
 ```bash
 docker build \
   -f diabetes-triage/Dockerfile \
-  -t diabetes-triage:v0.1 \
+  -t diabetes-triage:v0.2 \
   diabetes-triage
 ```
 
@@ -323,7 +344,7 @@ docker build \
 docker run --rm \
   -p 8000:80 \
   --name diabetes-triage \
-  diabetes-triage:v0.1
+  diabetes-triage:v0.2
 ```
 
 The application is exposed on port 8000 of the host and port 80 inside the container.
@@ -358,7 +379,7 @@ It:
 4. Runs Ruff.
 5. Runs pytest.
 6. Executes the training script.
-7. Uploads `models/metrics.json` as a workflow artifact.
+7. Uploads the v0.2 `models/metrics.json` as a workflow artifact.
 
 The workflow executes project commands from `diabetes-triage/`.
 
@@ -393,18 +414,10 @@ The project uses explicit version labels to distinguish model iterations.
 
 ### v0.2 — Model improvement
 
-The next iteration will evaluate an alternative regression model, initially Ridge Regression.
-
-The comparison should use the same dataset split and random seed as v0.1. The new version should:
-
-- Record the model configuration and RMSE.
-- Compare v0.2 against the baseline.
-- Explain the observed metric change in `CHANGELOG.md`.
-- Update the model version consistently in the training metadata and API.
-- Pass the API tests and CI checks.
-- Be released only after its artifacts and Docker image have been verified.
-
-A new model should not automatically replace the baseline merely because it is more complex. The measured evaluation results should guide the decision.
+- Uses `StandardScaler` and `Ridge(alpha=1.0)` with the same split and seed as v0.1.
+- Achieves validation RMSE `53.7775` versus the v0.1 RMSE `53.8534`, an improvement of `0.0760` RMSE points.
+- Stores the comparison in `models/metrics.json` and preserves the baseline in the versioned v0.1 artifacts.
+- Is served by the API as model version `v0.2`.
 
 ## 12. Reproducibility Notes
 
@@ -442,5 +455,3 @@ Any future real-world clinical application would require appropriate clinical va
 - [Docker documentation](https://docs.docker.com/)
 - [GitHub Actions documentation](https://docs.github.com/en/actions)
 - [GitHub Container Registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-
-

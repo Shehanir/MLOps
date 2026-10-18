@@ -1,8 +1,7 @@
 
 from fastapi.testclient import TestClient
 
-from app.main import app, MODEL_VERSION
-
+from app.main import MODEL_VERSION, app
 
 client = TestClient(app)
 

@@ -1,0 +1,7 @@
+{
+  "model_version": "v0.1",
+  "model_type": "LinearRegression",
+  "rmse": 53.85344583676593,
+  "random_state": 42,
+  "test_size": 0.2
+}
